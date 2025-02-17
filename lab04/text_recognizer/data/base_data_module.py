@@ -38,8 +38,8 @@ def _download_raw_dataset(metadata: Dict, dl_dirname: Path) -> Path:
     return filename
 
 
-BATCH_SIZE = 128
-NUM_AVAIL_CPUS = len(os.sched_getaffinity(0))
+BATCH_SIZE = 16
+NUM_AVAIL_CPUS = os.cpu_count()
 NUM_AVAIL_GPUS = torch.cuda.device_count()
 
 # sensible multiprocessing defaults: at most one worker per CPU
@@ -115,6 +115,7 @@ class BaseDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.on_gpu,
+            persistent_workers=True,
         )
 
     def val_dataloader(self):
@@ -124,6 +125,7 @@ class BaseDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.on_gpu,
+            persistent_workers=True,
         )
 
     def test_dataloader(self):

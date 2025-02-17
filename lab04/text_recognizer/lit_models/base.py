@@ -40,9 +40,9 @@ class BaseLitModel(pl.LightningModule):
         self.one_cycle_max_lr = self.args.get("one_cycle_max_lr", None)
         self.one_cycle_total_steps = self.args.get("one_cycle_total_steps", ONE_CYCLE_TOTAL_STEPS)
 
-        self.train_acc = Accuracy()
-        self.val_acc = Accuracy()
-        self.test_acc = Accuracy()
+        self.train_acc = Accuracy(task="multiclass", num_classes=84)
+        self.val_acc = Accuracy(task="multiclass", num_classes=84)
+        self.test_acc = Accuracy(task="multiclass", num_classes=84)
 
     @staticmethod
     def add_to_argparse(parser):

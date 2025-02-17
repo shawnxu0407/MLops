@@ -7,8 +7,13 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities.rank_zero import rank_zero_info, rank_zero_only
 import torch
 
-from text_recognizer import lit_models
-from training.util import DATA_CLASS_MODULE, import_class, MODEL_CLASS_MODULE, setup_data_and_model_from_args
+from fslab.lab02.text_recognizer import lit_models
+from fslab.lab02.training.util import (
+    DATA_CLASS_MODULE,
+    import_class,
+    MODEL_CLASS_MODULE,
+    setup_data_and_model_from_args,
+)
 
 
 # In order to ensure reproducible experiments, we must set random seeds.

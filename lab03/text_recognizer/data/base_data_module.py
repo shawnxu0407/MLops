@@ -39,7 +39,7 @@ def _download_raw_dataset(metadata: Dict, dl_dirname: Path) -> Path:
 
 
 BATCH_SIZE = 128
-NUM_AVAIL_CPUS = len(os.sched_getaffinity(0))
+NUM_AVAIL_CPUS = os.cpu_count()
 NUM_AVAIL_GPUS = torch.cuda.device_count()
 
 # sensible multiprocessing defaults: at most one worker per CPU
