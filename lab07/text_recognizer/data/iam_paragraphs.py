@@ -7,14 +7,12 @@ from typing import Callable, Dict, Optional, Sequence, Tuple
 import numpy as np
 from PIL import Image
 from pytorch_lightning.utilities.rank_zero import rank_zero_info
-from torch.utils.data import DataLoader
 
 from text_recognizer.data.base_data_module import BaseDataModule, load_and_print_info
 from text_recognizer.data.iam import IAM
 from text_recognizer.data.util import BaseDataset, convert_strings_to_labels, resize_image
 import text_recognizer.metadata.iam_paragraphs as metadata
 from text_recognizer.stems.paragraph import ParagraphStem
-import os
 
 
 IMAGE_SCALE_FACTOR = metadata.IMAGE_SCALE_FACTOR
@@ -111,48 +109,6 @@ class IAMParagraphs(BaseDataModule):
             f"Test Batch y stats: {(yt.shape, yt.dtype, yt.min(), yt.max())}\n"
         )
         return basic + data
-
-
-
-
-
-class PreloadedIAMParagraphs(IAMParagraphs):
-    """Preloads IAM Paragraphs dataset into RAM for faster training."""
-
-    def __init__(self, args=None):
-        super().__init__(args)
-        self.data_train = None
-        self.data_val = None
-        self.data_test = None
-
-    def setup(self, stage: str = None) -> None:
-        """Load the dataset and store it in memory."""
-        super().setup(stage)  # Call the original IAMParagraphs setup method
-
-        # Convert datasets to lists (or store tensors directly in RAM)
-        self.data_train = list(self.data_train) if self.data_train else None
-        self.data_val = list(self.data_val) if self.data_val else None
-        self.data_test = list(self.data_test) if self.data_test else None
-
-    def train_dataloader(self):
-        return DataLoader(
-            self.data_train,
-            batch_size=16,
-            shuffle=True,
-            num_workers=min(8, os.cpu_count()),
-            persistent_workers=True,
-            pin_memory=True,
-        )
-
-    def val_dataloader(self):
-        return DataLoader(
-            self.data_val, batch_size=16, shuffle=False, num_workers=min(8, os.cpu_count()), persistent_workers=True
-        )
-
-    def test_dataloader(self):
-        return DataLoader(
-            self.data_test, batch_size=16, shuffle=False, num_workers=min(8, os.cpu_count()), persistent_workers=True
-        )
 
 
 def validate_input_and_output_dimensions(

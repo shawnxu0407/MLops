@@ -42,11 +42,7 @@ class TransformerLitModel(BaseImageToTextLitModel):
         return output.permute(1, 2, 0)  # (B, C, Sy)
 
     def training_step(self, batch, batch_idx):
-        print(next(self.model.parameters()).device)
-
         x, y = batch
-        x, y = x.to(self.device), y.to(self.device)
-        print(x.device, y.device)
         logits = self.teacher_forward(x, y[:, :-1])
         loss = self.loss_fn(logits, y[:, 1:])
 
@@ -62,7 +58,6 @@ class TransformerLitModel(BaseImageToTextLitModel):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        x, y = x.to(self.device), y.to(self.device)
         # compute loss as in training, for comparison
         logits = self.teacher_forward(x, y[:, :-1])
         loss = self.loss_fn(logits, y[:, 1:])
@@ -84,7 +79,6 @@ class TransformerLitModel(BaseImageToTextLitModel):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        x, y = x.to(self.device), y.to(self.device)
         # compute loss as in training, for comparison
         logits = self.teacher_forward(x, y[:, :-1])
         loss = self.loss_fn(logits, y[:, 1:])

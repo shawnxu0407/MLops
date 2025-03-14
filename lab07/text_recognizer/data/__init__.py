@@ -19,8 +19,12 @@ from .emnist_lines import EMNISTLines
 
 from .iam_paragraphs import IAMParagraphs
 
-from .iam_paragraphs import PreloadedIAMParagraphs
-from .iam_lines import PreloadedIAMLines
-
 
 from .iam_lines import IAMLines
+
+
+from .fake_images import FakeImageData
+
+
+from .iam_synthetic_paragraphs import IAMSyntheticParagraphs
+from .iam_original_and_synthetic_paragraphs import IAMOriginalAndSyntheticParagraphs

@@ -22,19 +22,24 @@ def _setup_parser():
     """Set up Python's ArgumentParser with data, model, trainer, and other arguments."""
     parser = argparse.ArgumentParser(add_help=False)
 
-    # Add Trainer specific arguments manually
-    parser.add_argument("--max_epochs", type=int, default=10, help="Max number of epochs")
-    parser.add_argument("--gpus", type=int, default=1, help="Number of GPUs to use")
-    parser.add_argument("--precision", type=int, default=16, help="Precision of the model")
-    parser.add_argument("--limit_train_batches", type=float, default=1, help="Limit number of training batches")
-    parser.add_argument("--limit_test_batches", type=float, default=1, help="Limit number of test batches")
-    parser.add_argument("--limit_val_batches", type=float, default=1, help="Limit number of validation batches")
-    parser.add_argument("--log_every_n_steps", type=int, default=50, help="Logging frequency in steps")
-    parser.add_argument("--wandb", action="store_true", help="Use Weights & Biases for logging")
+    # Add Trainer specific arguments, such as --max_epochs, --gpus, --precision
+    trainer_parser = pl.Trainer.add_argparse_args(parser)
+    trainer_parser._action_groups[1].title = "Trainer Args"
+    parser = argparse.ArgumentParser(add_help=False, parents=[trainer_parser])
+    parser.set_defaults(max_epochs=1)
 
     # Basic arguments
     parser.add_argument(
-        "--check_val_every_n_epoch", type=int, default=1, help="Number of epochs between validation checks"
+        "--wandb",
+        action="store_true",
+        default=False,
+        help="If passed, logs experiment results to Weights & Biases. Otherwise logs only to local Tensorboard.",
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        default=False,
+        help="If passed, uses the PyTorch Profiler to track computation, exported as a Chrome-style trace.",
     )
     parser.add_argument(
         "--data_class",
@@ -156,20 +161,21 @@ def main():
     if args.wandb and args.loss in ("transformer",):
         callbacks.append(cb.ImageToTextLogger())
 
-    trainer = pl.Trainer(
-        max_epochs=args.max_epochs,
-        precision=args.precision,
-        limit_train_batches=args.limit_train_batches,
-        limit_test_batches=args.limit_test_batches,
-        limit_val_batches=args.limit_val_batches,
-        callbacks=callbacks,
-        logger=logger,
-        check_val_every_n_epoch=args.check_val_every_n_epoch,
-    )
+    trainer = pl.Trainer.from_argparse_args(args, callbacks=callbacks, logger=logger)
+    if args.profile:
+        sched = torch.profiler.schedule(wait=0, warmup=3, active=4, repeat=0)
+        profiler = pl.profiler.PyTorchProfiler(export_to_chrome=True, schedule=sched, dirpath=experiment_dir)
+        profiler.STEP_FUNCTIONS = {"training_step"}  # only profile training
+    else:
+        profiler = pl.profiler.PassThroughProfiler()
 
-    ## trainer.tune(lit_model, datamodule=data)  # If passing --auto_lr_find, this will set learning rate
+    trainer.profiler = profiler
+
+    trainer.tune(lit_model, datamodule=data)  # If passing --auto_lr_find, this will set learning rate
 
     trainer.fit(lit_model, datamodule=data)
+
+    trainer.profiler = pl.profiler.PassThroughProfiler()  # turn profiling off during testing
 
     best_model_path = checkpoint_callback.best_model_path
     if best_model_path:

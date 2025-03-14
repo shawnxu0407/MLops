@@ -22,6 +22,8 @@ from text_recognizer import lit_models
 from training.util import DATA_CLASS_MODULE, import_class, MODEL_CLASS_MODULE, setup_data_and_model_from_args
 from text_recognizer.data.iam_lines import IAMLines, PreloadedIAMLines
 from pytorch_lightning.utilities.rank_zero import rank_zero_info, rank_zero_only
+from lightning.pytorch.profilers import PyTorchProfiler, PassThroughProfiler
+from torch.profiler import ProfilerActivity
 
 
 
@@ -49,6 +51,12 @@ def _setup_parser():
         type=int, 
         default=1, 
         help="Number of epochs between validation checks"
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        default=False,
+        help="If passed, uses the PyTorch Profiler to track computation, exported as a Chrome-style trace.",
     )
     parser.add_argument(
         "--data_class",
@@ -121,16 +129,14 @@ def main():
     ## change the model type to be tranformer
 
 
-    ## import the model
-    ## import the model
-
     _ , model = setup_data_and_model_from_args(args)
     lit_model_class = lit_models.TransformerLitModel
     lit_model = lit_model_class(args=args, model=model)
     lit_model=lit_model.to(args.device)
 
     ## load the train/vali/test data loader
-    data_module = PreloadedIAMLines(args)  
+    data_class = import_class(f"{DATA_CLASS_MODULE}.{args.data_class}")
+    data_module = data_class(args)
     # Setup data (loads everything into RAM)
     data_module.setup()
 
@@ -144,13 +150,31 @@ def main():
         logger = pl.loggers.WandbLogger(log_model="all", save_dir=str(log_dir), job_type="train")
         logger.watch(model, log_freq=max(100, args.log_every_n_steps))
         logger.log_hyperparams(vars(args))
+        experiment_dir = logger.experiment.dir
 
 
     if args.wandb and args.loss in ("transformer",):
         callbacks.append(cb.ImageToTextLogger())
 
+
+    if args.profile:
+        profiler = PyTorchProfiler(export_to_chrome=True,
+                                   activities=[
+                                        ProfilerActivity.CPU, 
+                                        ProfilerActivity.CUDA
+                                    ],
+                                    use_cuda=True,
+                                    dirpath=experiment_dir,
+                                    schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=1)
+                                    )
+    else:
+        profiler = PassThroughProfiler()  # Don't use profiler if not enabled
+
+
     trainer = pl.Trainer(
                 max_epochs=args.max_epochs,
+                accelerator="gpu",
+                devices=args.devices,
                 precision=args.precision,
                 limit_train_batches=args.limit_train_batches,
                 limit_test_batches=args.limit_test_batches,
@@ -159,11 +183,13 @@ def main():
                 check_val_every_n_epoch=args.check_val_every_n_epoch,
                 enable_progress_bar=False,
                 callbacks=callbacks,
+                profiler=profiler
                 )
 
     ## trainer.tune(lit_model, datamodule=data)  # If passing --auto_lr_find, this will set learning rate
 
     trainer.fit(lit_model, datamodule=data_module)
+
     trainer.test(lit_model, datamodule=data_module)
 
 
