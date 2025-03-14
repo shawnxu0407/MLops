@@ -1,0 +1,24 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_ACCOUNT_ID: "061039778161" 
+    AWS_REGION: "ca-central-1"
+    REPO_NAME: "text-recognizer-backend"  # Change this to your ECR repo name
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+  build:
+    commands:
+      - echo Building the Docker image...
+      - cd lab07  # Move into the correct directory
+      - docker build -t $REPO_NAME .
+      - docker tag $REPO_NAME:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:latest
+  post_build:
+    commands:
+      - echo Pushing the Docker image to Amazon ECR...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:latest
+      - echo Build completed successfully.
